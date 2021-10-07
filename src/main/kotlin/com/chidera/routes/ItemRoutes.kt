@@ -3,45 +3,57 @@ import io.ktor.http.*
 import io.ktor.request.*
 import io.ktor.response.*
 import io.ktor.routing.*
+import org.jetbrains.exposed.sql.transactions.transaction
 
 fun Application.registerItemRoutes() {
     routing {
         listItemRoute()
         addItemRoute()
         deleteItemRoute()
+        updateItemRoute()
     }
 }
 
 fun Route.listItemRoute() {
     route("/shop") {
         get("{id}/items") {
-            val id = call.parameters["id"] ?: return@get call.respondText(
+            val id = call.parameters["id"]?.toIntOrNull() ?: return@get call.respondText(
                 "Missing or malformed id",
                 status = HttpStatusCode.BadRequest
             )
-            val shop = shopStorage.find { it.id == id } ?: return@get call.respondText(
-                "No shop with id $id",
-                status = HttpStatusCode.NotFound
-            )
-            call.respond(shop.items)
+            val items = transaction {
+                Item.find { Items.shopId eq id }.iterator().asSequence().toList().map(Item::toItem)
+            }
+            if (items.isNotEmpty()) {
+                call.respond(items)
+            } else {
+                call.respondText(
+                    "No Items available",
+                    status = HttpStatusCode.NotFound
+                )
+            }
         }
         get("{id}/items/{itemId}") {
-            val id = call.parameters["id"] ?: return@get call.respondText(
+            val id = call.parameters["id"]?.toIntOrNull() ?: return@get call.respondText(
                 "Missing or malformed id",
                 status = HttpStatusCode.BadRequest
             )
-            val itemId = call.parameters["itemId"] ?: return@get call.respondText(
+            val itemId = call.parameters["itemId"]?.toIntOrNull() ?: return@get call.respondText(
                 "Missing or malformed item id",
                 status = HttpStatusCode.BadRequest
             )
-            val shop = shopStorage.find { it.id == id } ?: return@get call.respondText(
-                "No shop with id $id",
+            val shopItems = transaction {
+                Item.find { Items.shopId eq id }.iterator().asSequence().toList()
+            }
+            val item = shopItems.find { it.id.value == itemId } ?: return@get call.respondText(
+                "No item with id $itemId found",
                 status = HttpStatusCode.NotFound
             )
-            val item = shop.items.find { it.id == itemId } ?: return@get call.respondText(
-                "No item with id $itemId"
+            call.respond(
+                transaction {
+                    item.toItem()
+                }
             )
-            call.respond(item)
         }
     }
 }
@@ -49,18 +61,22 @@ fun Route.listItemRoute() {
 fun Route.addItemRoute() {
     route("/shop") {
         post("{id}") {
-            val item = call.receive<Item>()
-            val id = call.parameters["id"] ?: return@post call.respondText(
+            val item = call.receive<ItemObject>()
+            val id = call.parameters["id"]?.toIntOrNull() ?: return@post call.respondText(
                 "Missing or malformed id",
                 status = HttpStatusCode.BadRequest
             )
-            val shop = shopStorage.find { it.id == id } ?: return@post call.respondText(
-                "No shop with id $id",
-                status = HttpStatusCode.NotFound
-            )
-            shop.items.add(item)
+            transaction {
+                Item.new {
+                    shopId = Shop[id]
+                    name = item.name
+                    description = item.description
+                    quantityInStock = item.quantityInStock
+                    price = item.price
+                }
+            }
             call.respondText(
-                "Item stored successfully",
+                "Item added successfully",
                 status = HttpStatusCode.Created
             )
         }
@@ -70,29 +86,45 @@ fun Route.addItemRoute() {
 fun Route.deleteItemRoute() {
     route("/shop") {
         delete("{id}/items/{itemId}") {
-            val id = call.parameters["id"] ?: return@delete call.respondText(
-                "Missing or malformed id",
-                status = HttpStatusCode.BadRequest
-            )
-            val itemId = call.parameters["itemId"] ?: return@delete call.respondText(
+            val id = call.parameters["id"]?.toIntOrNull()
+            val itemId = call.parameters["itemId"]?.toIntOrNull() ?: return@delete call.respondText(
                 "Missing or malformed item id",
                 status = HttpStatusCode.BadRequest
             )
-            val shop = shopStorage.find { it.id == id } ?: return@delete call.respondText(
-                "No shop with id $id",
-                status = HttpStatusCode.NotFound
-            )
-            if (shop.items.removeIf { it.id == itemId }) {
+            if (id != null){
+                if ( transaction { Shop.findById(id) == null } ){
+                    call.respondText(
+                        "No shop with id $id",
+                        status = HttpStatusCode.BadRequest
+                    )
+                }
+                if ( transaction { Item.findById(itemId) == null } ) {
+                    call.respondText(
+                        "No item with id $itemId",
+                        status = HttpStatusCode.BadRequest
+                    )
+                }
+                transaction {
+                    Item[itemId].delete()
+                }
                 call.respondText(
-                    "Item removed successfully",
+                    "Item deleted successfully",
                     status = HttpStatusCode.Accepted
                 )
             } else {
                 call.respondText(
-                    "Item not found",
-                    status = HttpStatusCode.NotFound
+                    "Missing or malformed id",
+                    status = HttpStatusCode.BadRequest
                 )
             }
+        }
+    }
+}
+
+fun Route.updateItemRoute() {
+    route("/shop") {
+        put("{id}/items/{itemId}") {
+
         }
     }
 }
