@@ -16,11 +16,12 @@ class Shop(id: EntityID<Int>) : IntEntity(id) {
     var name by Shops.name
     var description by Shops.description
 
-    fun toShop() = ShopObject(name, description)
+    fun toShop() = ShopObject(id.value, name, description)
 }
 
 @Serializable
 data class ShopObject(
+    val shopId: Int? = null,
     val name: String,
     val description: String,
 )

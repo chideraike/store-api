@@ -61,9 +61,13 @@ fun Route.shopRouting() {
             val shop = transaction {
                 Shop.findById(id)
             }
+            val itemsInShop = transaction { Item.find { Items.shopId eq id } }
             if (shop != null) {
                 transaction {
                     shop.delete()
+                    itemsInShop.map {
+                        it.delete()
+                    }
                 }
                 call.respondText(
                     "Shop deleted successfully",
