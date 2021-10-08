@@ -72,19 +72,26 @@ fun Route.addItemRoute() {
                     status = HttpStatusCode.BadRequest
                 )
             }
-            transaction {
-                Item.new {
-                    shopId = Shop[id]
-                    name = item.name
-                    description = item.description
-                    quantityInStock = item.quantityInStock
-                    price = item.price
+            if (item.name.isNotBlank()) {
+                transaction {
+                    Item.new {
+                        shopId = Shop[id]
+                        name = item.name
+                        description = item.description
+                        quantityInStock = item.quantityInStock
+                        price = item.price
+                    }
                 }
+                call.respondText(
+                    "Item added successfully",
+                    status = HttpStatusCode.Created
+                )
+            } else {
+                call.respondText(
+                    "Item name cannot be empty",
+                    status = HttpStatusCode.BadRequest
+                )
             }
-            call.respondText(
-                "Item added successfully",
-                status = HttpStatusCode.Created
-            )
         }
     }
 }

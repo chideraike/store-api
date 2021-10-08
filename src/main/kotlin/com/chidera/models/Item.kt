@@ -10,6 +10,7 @@ object Items: IntIdTable() {
     val description = varchar("description", 255)
     val quantityInStock = integer("quantityInStock")
     val price = double("price")
+    override val primaryKey = PrimaryKey(id, name = "Item_id")
 }
 
 class Item(id: EntityID<Int>) : IntEntity(id) {
@@ -21,12 +22,13 @@ class Item(id: EntityID<Int>) : IntEntity(id) {
     var quantityInStock by Items.quantityInStock
     var price by Items.price
 
-    fun toItem() = ItemObject(shopId.id.value, name, description, quantityInStock, price)
+    fun toItem() = ItemObject(shopId.id.value, id.value, name, description, quantityInStock, price)
 }
 
 @Serializable
 data class ItemObject(
     val shopId: Int? = null,
+    val itemId: Int? = null,
     val name: String,
     val description: String,
     val quantityInStock: Int,

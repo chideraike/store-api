@@ -45,16 +45,23 @@ fun Route.shopRouting() {
         }
         post {
             val shop = call.receive<ShopObject>()
-            transaction {
-                Shop.new {
-                    name = shop.name
-                    description = shop.description
+            if (shop.name.isNotBlank()) {
+                transaction {
+                    Shop.new {
+                        name = shop.name
+                        description = shop.description
+                    }
                 }
+                call.respondText(
+                    "Shop created successfully",
+                    status = HttpStatusCode.Created
+                )
+            } else {
+                call.respondText(
+                    "Name cannot be empty",
+                    status = HttpStatusCode.BadRequest
+                )
             }
-            call.respondText(
-                "Shop created successfully",
-                status = HttpStatusCode.Created
-            )
         }
         delete("{id}") {
             val id = call.parameters["id"]?.toIntOrNull() ?: return@delete call.respond(HttpStatusCode.BadRequest)
