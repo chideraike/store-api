@@ -66,6 +66,12 @@ fun Route.addItemRoute() {
                 "Missing or malformed id",
                 status = HttpStatusCode.BadRequest
             )
+            if ( transaction { Shop.findById(id) == null } ){
+                call.respondText(
+                    "No shop with id $id",
+                    status = HttpStatusCode.BadRequest
+                )
+            }
             transaction {
                 Item.new {
                     shopId = Shop[id]
