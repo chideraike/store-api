@@ -124,7 +124,42 @@ fun Route.deleteItemRoute() {
 fun Route.updateItemRoute() {
     route("/shop") {
         put("{id}/items/{itemId}") {
-
+            val item = call.receive<ItemObject>()
+            val id = call.parameters["id"]?.toIntOrNull()
+            val itemId = call.parameters["itemId"]?.toIntOrNull() ?: return@put call.respondText(
+                "Missing or malformed item id",
+                status = HttpStatusCode.BadRequest
+            )
+            if (id != null){
+                if ( transaction { Shop.findById(id) == null } ){
+                    call.respondText(
+                        "No shop with id $id",
+                        status = HttpStatusCode.BadRequest
+                    )
+                }
+                if ( transaction { Item.findById(itemId) == null } ) {
+                    call.respondText(
+                        "No item with id $itemId",
+                        status = HttpStatusCode.BadRequest
+                    )
+                }
+                transaction {
+                    val itemToChange = Item[itemId]
+                    itemToChange.name = item.name
+                    itemToChange.description = item.description
+                    itemToChange.quantityInStock = item.quantityInStock
+                    itemToChange.price = item.price
+                }
+                call.respondText(
+                    "Item updated successfully",
+                    status = HttpStatusCode.Accepted
+                )
+            } else {
+                call.respondText(
+                    "Missing or malformed id",
+                    status = HttpStatusCode.BadRequest
+                )
+            }
         }
     }
 }
