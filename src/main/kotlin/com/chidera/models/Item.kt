@@ -28,7 +28,7 @@ class Item(id: EntityID<Int>) : IntEntity(id) {
 @Serializable
 data class ItemObject(
     val shopId: Int? = null,
-    val itemId: Int? = null,
+    val id: Int? = null,
     val name: String,
     val description: String,
     val quantityInStock: Int,

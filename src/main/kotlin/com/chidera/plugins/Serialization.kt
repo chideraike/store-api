@@ -15,9 +15,12 @@ fun Application.configureSerialization() {
                 prettyPrint = true
                 isLenient = true
                 encodeDefaults = false
+                ignoreUnknownKeys = true
             }
         )
     }
+
+    install(IgnoreTrailingSlash)
 
     routing {
         get("/json/kotlinx-serialization") {

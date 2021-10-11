@@ -7,43 +7,63 @@ import org.jetbrains.exposed.sql.transactions.transaction
 
 fun Application.registerShopRoutes() {
     routing {
-        shopRouting()
+        route("/v1/shops") {
+            shopRouting()
+        }
     }
 }
 
 fun Route.shopRouting() {
-    route("/shop") {
-        get {
-            val shops = transaction {
-                Shop.all().map(Shop::toShop)
-            }
-            if (shops.isEmpty()) {
-                call.respondText(
-                    "No shop found",
-                    status = HttpStatusCode.NotFound
-                )
-            } else {
-                call.respond(shops)
-            }
+    get {
+        val shops = transaction {
+            Shop.all().map(Shop::toShop)
         }
-        get("{id}") {
-            val id = call.parameters["id"]?.toIntOrNull() ?: return@get call.respondText(
-                "Missing or malformed id",
-                status = HttpStatusCode.BadRequest
+        if (shops.isEmpty()) {
+            call.respond(
+                ApiResponseWithoutData(
+                    HttpStatusCode.NotFound.toString().split(" ").first().toInt(),
+                    HttpStatusCode.NotFound.toString().split(" ")[1]
+                )
             )
-            val shop = transaction {
-                Shop.findById(id)
-            }
-            if (shop != null) {
-                call.respond(shop.toShop())
-            } else {
-                call.respondText(
-                    "No shop available",
-                    status = HttpStatusCode.NotFound
+        } else {
+            call.respond(
+                ApiResponse(
+                    HttpStatusCode.OK.toString().split(" ").first().toInt(),
+                    "Success",
+                    shops
                 )
-            }
+            )
         }
-        post {
+    }
+    get("{id}") {
+        val id = call.parameters["id"]?.toIntOrNull() ?: return@get call.respond(
+            ApiResponseWithoutData(
+                HttpStatusCode.BadRequest.toString().split(" ").first().toInt(),
+                "Missing or malformed id"
+            )
+        )
+        val shop = transaction {
+            Shop.findById(id)
+        }
+        if (shop != null) {
+            call.respond(
+                ApiResponse(
+                    HttpStatusCode.OK.toString().split(" ").first().toInt(),
+                    "Success",
+                    shop.toShop()
+                )
+            )
+        } else {
+            call.respond(
+                ApiResponseWithoutData(
+                    HttpStatusCode.NotFound.toString().split(" ").first().toInt(),
+                    "No shop available"
+                )
+            )
+        }
+    }
+    post {
+        try {
             val shop = call.receive<ShopObject>()
             if (shop.name.isNotBlank()) {
                 transaction {
@@ -52,65 +72,109 @@ fun Route.shopRouting() {
                         description = shop.description
                     }
                 }
-                call.respondText(
-                    "Shop created successfully",
-                    status = HttpStatusCode.Created
+                call.respond(
+                    ApiResponseWithoutData(
+                        HttpStatusCode.Created.toString().split(" ").first().toInt(),
+                        "Shop created successfully"
+                    )
                 )
             } else {
-                call.respondText(
-                    "Name cannot be empty",
-                    status = HttpStatusCode.BadRequest
+                call.respond(
+                    ApiResponseWithoutData(
+                        HttpStatusCode.BadRequest.toString().split(" ").first().toInt(),
+                        "Name cannot be empty"
+                    )
                 )
             }
+        } catch (e: Exception) {
+            call.respond(
+                ApiResponseWithoutData(
+                    HttpStatusCode.BadRequest.toString().split(" ").first().toInt(),
+                    "Invalid type specified"
+                )
+            )
         }
-        delete("{id}") {
-            val id = call.parameters["id"]?.toIntOrNull() ?: return@delete call.respond(HttpStatusCode.BadRequest)
-            val shop = transaction {
-                Shop.findById(id)
-            }
-            val itemsInShop = transaction { Item.find { Items.shopId eq id } }
-            if (shop != null) {
-                transaction {
-                    shop.delete()
-                    itemsInShop.map {
-                        it.delete()
-                    }
+    }
+    delete("{id}") {
+        val id = call.parameters["id"]?.toIntOrNull() ?: return@delete call.respond(
+            ApiResponseWithoutData(
+                HttpStatusCode.BadRequest.toString().split(" ").first().toInt(),
+                "Missing or malformed id"
+            )
+        )
+        val shop = transaction {
+            Shop.findById(id)
+        }
+        val itemsInShop = transaction { Item.find { Items.shopId eq id } }
+        if (shop != null) {
+            transaction {
+                shop.delete()
+                itemsInShop.map {
+                    it.delete()
                 }
-                call.respondText(
-                    "Shop deleted successfully",
-                    status = HttpStatusCode.Accepted
-                )
-            } else {
-                call.respondText(
-                    "No shop found",
-                    status = HttpStatusCode.NotFound
-                )
             }
+            call.respond(
+                ApiResponseWithoutData(
+                    HttpStatusCode.Accepted.toString().split(" ").first().toInt(),
+                    "Shop deleted successfully"
+                )
+            )
+        } else {
+            call.respond(
+                ApiResponseWithoutData(
+                    HttpStatusCode.NotFound.toString().split(" ").first().toInt(),
+                    "No shop found"
+                )
+            )
         }
-        put("{id}") {
+    }
+    put("{id}") {
+        try {
             val item = call.receive<ShopObject>()
-            val id = call.parameters["id"]?.toIntOrNull() ?: return@put call.respondText(
-                "Missing or malformed id",
-                status = HttpStatusCode.BadRequest
+            val id = call.parameters["id"]?.toIntOrNull() ?: return@put call.respond(
+                ApiResponseWithoutData(
+                    HttpStatusCode.BadRequest.toString().split(" ").first().toInt(),
+                    "Missing or malformed id"
+                )
             )
             val shop = transaction {
                 Shop.findById(id)
             }
             if (shop != null) {
-                transaction {
-                    shop.name = item.name
-                    shop.description = item.description
+                if (item.name.isNotBlank()) {
+                    transaction {
+                        shop.name = item.name
+                        shop.description = item.description
+                    }
+                    call.respond(
+                        ApiResponseWithoutData(
+                            HttpStatusCode.Accepted.toString().split(" ").first().toInt(),
+                            "Shop updated successfully"
+                        )
+                    )
+                } else {
+                    call.respond(
+                        ApiResponseWithoutData(
+                            HttpStatusCode.BadRequest.toString().split(" ").first().toInt(),
+                            "Name cannot be empty"
+                        )
+                    )
                 }
-                call.respondText(
-                    "Shop updated successfully",
-                    status = HttpStatusCode.Accepted
-                )
             } else {
-                call.respondText(
-                    "No shop found",
-                    status = HttpStatusCode.NotFound
+                call.respond(
+                    ApiResponseWithoutData(
+                        HttpStatusCode.NotFound.toString().split(" ").first().toInt(),
+                        "No shop found"
+                    )
                 )
             }
+        } catch (e: Exception) {
+            call.respond(
+                ApiResponseWithoutData(
+                    HttpStatusCode.BadRequest.toString().split(" ").first().toInt(),
+                    "Invalid type specified"
+                )
+            )
         }
     }
 }

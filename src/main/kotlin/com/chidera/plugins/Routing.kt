@@ -13,8 +13,10 @@ fun Application.configureRouting() {
     registerItemRoutes()
 
     routing {
-        get("/") {
+        route("/") {
+            get {
                 call.respondText("Welcome to Shop World!")
             }
+        }
     }
 }

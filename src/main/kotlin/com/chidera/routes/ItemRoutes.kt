@@ -7,172 +7,252 @@ import org.jetbrains.exposed.sql.transactions.transaction
 
 fun Application.registerItemRoutes() {
     routing {
-        listItemRoute()
-        addItemRoute()
-        deleteItemRoute()
-        updateItemRoute()
+        route("/v1/shops"){
+            listItemRoute()
+            addItemRoute()
+            deleteItemRoute()
+            updateItemRoute()
+        }
     }
 }
 
 fun Route.listItemRoute() {
-    route("/shop") {
-        get("{id}/items") {
-            val id = call.parameters["id"]?.toIntOrNull() ?: return@get call.respondText(
-                "Missing or malformed id",
-                status = HttpStatusCode.BadRequest
+    get("{id}/items") {
+        val id = call.parameters["id"]?.toIntOrNull() ?: return@get call.respond(
+            ApiResponseWithoutData(
+                HttpStatusCode.BadRequest.toString().split(" ").first().toInt(),
+                "Missing or malformed id"
             )
-            val items = transaction {
-                Item.find { Items.shopId eq id }.iterator().asSequence().toList().map(Item::toItem)
-            }
-            if (items.isNotEmpty()) {
-                call.respond(items)
-            } else {
-                call.respondText(
-                    "No Items available",
-                    status = HttpStatusCode.NotFound
+        )
+        if ( transaction { Shop.findById(id) == null } ){
+            call.respond(
+                ApiResponseWithoutData(
+                    HttpStatusCode.NotFound.toString().split(" ").first().toInt(),
+                    "No shop with id $id"
                 )
-            }
+            )
         }
-        get("{id}/items/{itemId}") {
-            val id = call.parameters["id"]?.toIntOrNull() ?: return@get call.respondText(
-                "Missing or malformed id",
-                status = HttpStatusCode.BadRequest
+        val items = transaction {
+            Item.find { Items.shopId eq id }.iterator().asSequence().toList().map(Item::toItem)
+        }
+        if (items.isNotEmpty()) {
+            call.respond(
+                ApiResponse(
+                    HttpStatusCode.OK.toString().split(" ").first().toInt(),
+                    "Success",
+                    items
+                )
             )
-            val itemId = call.parameters["itemId"]?.toIntOrNull() ?: return@get call.respondText(
-                "Missing or malformed item id",
-                status = HttpStatusCode.BadRequest
+        } else {
+            call.respond(
+                ApiResponseWithoutData(
+                    HttpStatusCode.NotFound.toString().split(" ").first().toInt(),
+                    "No Items available"
+                )
             )
+        }
+    }
+    get("{id}/items/{itemId}") {
+        val id = call.parameters["id"]?.toIntOrNull() ?: return@get call.respond(
+            ApiResponseWithoutData(
+                HttpStatusCode.BadRequest.toString().split(" ").first().toInt(),
+                "Missing or malformed id"
+            )
+        )
+        val itemId = call.parameters["itemId"]?.toIntOrNull() ?: return@get call.respond(
+            ApiResponseWithoutData(
+                HttpStatusCode.BadRequest.toString().split(" ").first().toInt(),
+                "Missing or malformed item id"
+            )
+        )
+        if ( transaction { Shop.findById(id) == null } ){
+            call.respond(
+                ApiResponseWithoutData(
+                    HttpStatusCode.NotFound.toString().split(" ").first().toInt(),
+                    "No shop with id $id"
+                )
+            )
+        } else {
             val shopItems = transaction {
                 Item.find { Items.shopId eq id }.iterator().asSequence().toList()
             }
-            val item = shopItems.find { it.id.value == itemId } ?: return@get call.respondText(
-                "No item with id $itemId found",
-                status = HttpStatusCode.NotFound
+            val item = shopItems.find { it.id.value == itemId } ?: return@get call.respond(
+                ApiResponseWithoutData(
+                    HttpStatusCode.NotFound.toString().split(" ").first().toInt(),
+                    "No item with id $itemId found"
+                )
             )
             call.respond(
-                transaction {
-                    item.toItem()
-                }
+                ApiResponse(
+                    HttpStatusCode.OK.toString().split(" ").first().toInt(),
+                    "Success",
+                    transaction {
+                        item.toItem()
+                    }
+                )
             )
         }
     }
 }
 
 fun Route.addItemRoute() {
-    route("/shop") {
-        post("{id}") {
+    post("{id}") {
+        try {
             val item = call.receive<ItemObject>()
-            val id = call.parameters["id"]?.toIntOrNull() ?: return@post call.respondText(
-                "Missing or malformed id",
-                status = HttpStatusCode.BadRequest
-            )
-            if ( transaction { Shop.findById(id) == null } ){
-                call.respondText(
-                    "No shop with id $id",
-                    status = HttpStatusCode.BadRequest
+            val id = call.parameters["id"]?.toIntOrNull() ?: return@post call.respond(
+                ApiResponseWithoutData(
+                    HttpStatusCode.BadRequest.toString().split(" ").first().toInt(),
+                    "Missing or malformed id"
                 )
-            }
-            if (item.name.isNotBlank()) {
-                transaction {
-                    Item.new {
-                        shopId = Shop[id]
-                        name = item.name
-                        description = item.description
-                        quantityInStock = item.quantityInStock
-                        price = item.price
-                    }
-                }
-                call.respondText(
-                    "Item added successfully",
-                    status = HttpStatusCode.Created
+            )
+            if (transaction { Shop.findById(id) == null }) {
+                call.respond(
+                    ApiResponseWithoutData(
+                        HttpStatusCode.NotFound.toString().split(" ").first().toInt(),
+                        "No shop with id $id"
+                    )
                 )
             } else {
-                call.respondText(
-                    "Item name cannot be empty",
-                    status = HttpStatusCode.BadRequest
-                )
+                if (item.name.isNotBlank()) {
+                    transaction {
+                        Item.new {
+                            shopId = Shop[id]
+                            name = item.name
+                            description = item.description
+                            quantityInStock = item.quantityInStock
+                            price = item.price
+                        }
+                    }
+                    call.respond(
+                        ApiResponseWithoutData(
+                            HttpStatusCode.Created.toString().split(" ").first().toInt(),
+                            "Item added successfully"
+                        )
+                    )
+                } else {
+                    call.respond(
+                        ApiResponseWithoutData(
+                            HttpStatusCode.BadRequest.toString().split(" ").first().toInt(),
+                            "Item name cannot be empty"
+                        )
+                    )
+                }
             }
+        } catch (e: Exception) {
+            call.respond(
+                ApiResponseWithoutData(
+                    HttpStatusCode.BadRequest.toString().split(" ").first().toInt(),
+                    "Invalid type specified"
+                )
+            )
         }
     }
 }
 
 fun Route.deleteItemRoute() {
-    route("/shop") {
-        delete("{id}/items/{itemId}") {
-            val id = call.parameters["id"]?.toIntOrNull()
-            val itemId = call.parameters["itemId"]?.toIntOrNull() ?: return@delete call.respondText(
-                "Missing or malformed item id",
-                status = HttpStatusCode.BadRequest
+    delete("{id}/items/{itemId}") {
+        val id = call.parameters["id"]?.toIntOrNull()
+        val itemId = call.parameters["itemId"]?.toIntOrNull() ?: return@delete call.respond(
+            ApiResponseWithoutData(
+                HttpStatusCode.BadRequest.toString().split(" ").first().toInt(),
+                "Missing or malformed item id"
             )
-            if (id != null){
-                if ( transaction { Shop.findById(id) == null } ){
-                    call.respondText(
-                        "No shop with id $id",
-                        status = HttpStatusCode.BadRequest
+        )
+        if (id != null){
+            if ( transaction { Shop.findById(id) == null } ){
+                call.respond(
+                    ApiResponseWithoutData(
+                        HttpStatusCode.BadRequest.toString().split(" ").first().toInt(),
+                        "No shop with id $id"
                     )
-                }
-                if ( transaction { Item.findById(itemId) == null } ) {
-                    call.respondText(
-                        "No item with id $itemId",
-                        status = HttpStatusCode.BadRequest
-                    )
-                }
-                transaction {
-                    Item[itemId].delete()
-                }
-                call.respondText(
-                    "Item deleted successfully",
-                    status = HttpStatusCode.Accepted
                 )
             } else {
-                call.respondText(
-                    "Missing or malformed id",
-                    status = HttpStatusCode.BadRequest
-                )
+                if (transaction { Item.findById(itemId) == null }) {
+                    call.respond(
+                        ApiResponseWithoutData(
+                            HttpStatusCode.BadRequest.toString().split(" ").first().toInt(),
+                            "No item with id $itemId"
+                        )
+                    )
+                } else {
+                    transaction {
+                        Item[itemId].delete()
+                    }
+                    call.respond(
+                        ApiResponseWithoutData(
+                            HttpStatusCode.Accepted.toString().split(" ").first().toInt(),
+                            "Item deleted successfully"
+                        )
+                    )
+                }
             }
+        } else {
+            call.respond(
+                ApiResponseWithoutData(
+                    HttpStatusCode.BadRequest.toString().split(" ").first().toInt(),
+                    "Missing or malformed id"
+                )
+            )
         }
     }
 }
 
 fun Route.updateItemRoute() {
-    route("/shop") {
-        put("{id}/items/{itemId}") {
+    put("{id}/items/{itemId}") {
+        try {
             val item = call.receive<ItemObject>()
             val id = call.parameters["id"]?.toIntOrNull()
             val itemId = call.parameters["itemId"]?.toIntOrNull() ?: return@put call.respondText(
                 "Missing or malformed item id",
                 status = HttpStatusCode.BadRequest
             )
-            if (id != null){
-                if ( transaction { Shop.findById(id) == null } ){
-                    call.respondText(
-                        "No shop with id $id",
-                        status = HttpStatusCode.BadRequest
+            if (id != null) {
+                if (transaction { Shop.findById(id) == null }) {
+                    call.respond(
+                        ApiResponseWithoutData(
+                            HttpStatusCode.BadRequest.toString().split(" ").first().toInt(),
+                            "No shop with id $id"
+                        )
                     )
+                } else {
+                    if (transaction { Item.findById(itemId) == null }) {
+                        call.respond(
+                            ApiResponseWithoutData(
+                                HttpStatusCode.BadRequest.toString().split(" ").first().toInt(),
+                                "No item with id $itemId"
+                            )
+                        )
+                    } else {
+                        transaction {
+                            val itemToChange = Item[itemId]
+                            itemToChange.name = item.name
+                            itemToChange.description = item.description
+                            itemToChange.quantityInStock = item.quantityInStock
+                            itemToChange.price = item.price
+                        }
+                        call.respond(
+                            ApiResponseWithoutData(
+                                HttpStatusCode.Accepted.toString().split(" ").first().toInt(),
+                                "Item updated successfully"
+                            )
+                        )
+                    }
                 }
-                if ( transaction { Item.findById(itemId) == null } ) {
-                    call.respondText(
-                        "No item with id $itemId",
-                        status = HttpStatusCode.BadRequest
-                    )
-                }
-                transaction {
-                    val itemToChange = Item[itemId]
-                    itemToChange.name = item.name
-                    itemToChange.description = item.description
-                    itemToChange.quantityInStock = item.quantityInStock
-                    itemToChange.price = item.price
-                }
-                call.respondText(
-                    "Item updated successfully",
-                    status = HttpStatusCode.Accepted
-                )
             } else {
-                call.respondText(
-                    "Missing or malformed id",
-                    status = HttpStatusCode.BadRequest
+                call.respond(
+                    ApiResponseWithoutData(
+                        HttpStatusCode.BadRequest.toString().split(" ").first().toInt(),
+                        "Missing or malformed id"
+                    )
                 )
             }
+        } catch (e: Exception) {
+            call.respond(
+                ApiResponseWithoutData(
+                    HttpStatusCode.BadRequest.toString().split(" ").first().toInt(),
+                    "Invalid type specified"
+                )
+            )
         }
     }
 }

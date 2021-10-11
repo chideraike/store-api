@@ -18,7 +18,23 @@ class ApplicationTest {
         withTestApplication({ configureRouting() }) {
             handleRequest(HttpMethod.Get, "/").apply {
                 assertEquals(HttpStatusCode.OK, response.status())
-                assertEquals("Hello World!", response.content)
+                assertEquals("Welcome to Shop World!", response.content)
+            }
+        }
+    }
+    @Test
+    fun getAllShops() {
+        withTestApplication(Application::module) {
+            handleRequest(HttpMethod.Get, "/shop").apply {
+                assertEquals(HttpStatusCode.OK, response.status())
+            }
+        }
+    }
+    @Test
+    fun getShopById() {
+        withTestApplication(Application::module) {
+            handleRequest(HttpMethod.Get, "/shop/1").apply {
+                assertEquals(HttpStatusCode.OK, response.status())
             }
         }
     }

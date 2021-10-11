@@ -21,7 +21,7 @@ class Shop(id: EntityID<Int>) : IntEntity(id) {
 
 @Serializable
 data class ShopObject(
-    val shopId: Int? = null,
+    val id: Int? = null,
     val name: String,
     val description: String,
 )
