@@ -175,15 +175,25 @@ fun Route.deleteItemRoute() {
                         )
                     )
                 } else {
-                    transaction {
-                        Item[itemId].delete()
-                    }
-                    call.respond(
-                        ApiResponseWithoutData(
-                            HttpStatusCode.Accepted.toString().split(" ").first().toInt(),
-                            "Item deleted successfully"
+                    val itemCheck = transaction { Item.findById(itemId)?.toItem() }
+                    if ( itemCheck?.shopId == id ) {
+                        transaction {
+                            Item[itemId].delete()
+                        }
+                        call.respond(
+                            ApiResponseWithoutData(
+                                HttpStatusCode.Accepted.toString().split(" ").first().toInt(),
+                                "Item deleted successfully"
+                            )
                         )
-                    )
+                    } else {
+                        call.respond(
+                            ApiResponseWithoutData(
+                                HttpStatusCode.BadRequest.toString().split(" ").first().toInt(),
+                                "Item $itemId is not in Shop $id"
+                            )
+                        )
+                    }
                 }
             }
         } else {
